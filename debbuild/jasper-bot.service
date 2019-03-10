@@ -1,0 +1,12 @@
+[Unit]
+Description=Golang jasper-bot daemon
+
+[Service]
+ProtectSystem=strict
+ReadWritePaths=/etc/jasper-bot.toml
+ExecStart=/usr/bin/jasper-bot
+Restart=on-failure
+User=jasper-bot
+
+[Install]
+WantedBy=default.target

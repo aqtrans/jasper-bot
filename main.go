@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	cfgTree, err := toml.LoadFile("config.toml")
+	cfgTree, err := toml.LoadFile("/etc/jasper-bot.toml")
 	if err != nil {
 		log.Fatalln("Error reading config.toml", err)
 	}

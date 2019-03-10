@@ -1,0 +1,10 @@
+Source: jasper-bot
+Section: unknown
+Priority: optional
+Maintainer: aqtrans <aqtrans@jba.io>
+Homepage: https://git.jba.io/go/jasper-bot
+
+Package: jasper-bot
+Architecture: amd64
+Depends: libc6, adduser
+Description: A Matrix.org bot that generates and posts memes from http://thatsapaddl.in
