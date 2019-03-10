@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -13,9 +14,24 @@ import (
 )
 
 func main() {
-	cfgTree, err := toml.LoadFile("/etc/jasper-bot.toml")
+	confFile := flag.String("conf", "config.toml", "Path to the TOML config file.")
+	flag.Parse()
+
+	cfgTree, err := toml.LoadFile(*confFile)
 	if err != nil {
-		log.Fatalln("Error reading config.toml", err)
+		log.Fatalln("Error reading", *confFile, err)
+	}
+	if !cfgTree.Has("homeserver") {
+		log.Fatalln(*confFile, "does not have homeserver defined.")
+	}
+	if !cfgTree.Has("user") {
+		log.Fatalln(*confFile, "does not have user defined.")
+	}
+	if !cfgTree.Has("pass") {
+		log.Fatalln(*confFile, "does not have pass defined.")
+	}
+	if !cfgTree.Has("room") {
+		log.Fatalln(*confFile, "does not have room defined.")
 	}
 	homeserver := cfgTree.Get("homeserver").(string)
 	user := cfgTree.Get("user").(string)
