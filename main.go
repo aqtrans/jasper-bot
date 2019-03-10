@@ -19,13 +19,24 @@ func main() {
 	}
 	homeserver := cfgTree.Get("homeserver").(string)
 	user := cfgTree.Get("user").(string)
-	token := cfgTree.Get("token").(string)
+	pass := cfgTree.Get("pass").(string)
 	room := cfgTree.Get("room").(string)
 
-	cli, err := gomatrix.NewClient(homeserver, user, token)
+	cli, err := gomatrix.NewClient(homeserver, "", "")
 	if err != nil {
 		log.Fatalln("NewClient error:", err)
 	}
+
+	login, err := cli.Login(&gomatrix.ReqLogin{
+		Type:     "m.login.password",
+		User:     user,
+		Password: pass,
+	})
+	if err != nil {
+		log.Fatalln("Error logging in:", err)
+	}
+
+	cli.SetCredentials(login.UserID, login.AccessToken)
 
 	if _, err := cli.JoinRoom(room, "", nil); err != nil {
 		log.Fatalln("JoinRoom error:", err)
@@ -52,7 +63,7 @@ func main() {
 				// Grab image from thatsapaddl.in
 				tap, err := http.Get("https://thatsapaddl.in/" + memeText)
 				if err != nil {
-					log.Fatalln("Error getting meme.")
+					log.Fatalln("Error getting meme.", err)
 				}
 				tapImage := new(bytes.Buffer)
 				_, err = io.Copy(tapImage, tap.Body)

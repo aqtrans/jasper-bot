@@ -1,4 +1,4 @@
 homeserver = "https://matrix.org"
 user = "@jasper:matrix.org"
-token = "theAccessTokenForUser"
+pass = "usersPassword"
 room = "!rawRoomID:matrix.org"
