@@ -8,7 +8,7 @@ cache:
 before_script:
   - echo deb http://deb.debian.org/debian/ stretch main > /etc/apt/sources.list
   - ln -s /builds /go/src/jba.io
-  - cd /go/src/jba.io/go/jasper
+  - cd /go/src/jba.io/go/jasper-bot
   #- 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
   #- eval $(ssh-agent -s)
   #- ssh-add <(echo "$SSH_PRIVATE_KEY")
