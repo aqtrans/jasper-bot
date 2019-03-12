@@ -1,0 +1,134 @@
+image: golang:latest
+
+cache:
+  key: "$CI_COMMIT_REF_NAME"
+  paths:
+    - vendor/
+
+before_script:
+  - echo deb http://deb.debian.org/debian/ stretch main > /etc/apt/sources.list
+  - ln -s /builds /go/src/jba.io
+  - cd /go/src/jba.io/go/jasper
+  #- 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  #- eval $(ssh-agent -s)
+  #- ssh-add <(echo "$SSH_PRIVATE_KEY")
+  #- mkdir -p ~/.ssh
+  #- '[[ -f /.dockerenv ]] && echo "$SSH_SERVER_HOSTKEYS" > ~/.ssh/known_hosts'
+
+stages:
+  - install-environment
+  - build
+  - test
+  - package
+  - deploy  
+
+install-go:
+  stage: install-environment
+  script:
+    - go version
+    - echo $PATH
+    - echo $GOPATH
+    - go env
+    - which go
+
+build-my-project:
+  stage: build
+  script:
+    - curl -o dep -sL https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64
+    - chmod +x dep
+    - ./dep ensure
+    - go get -d
+    - go build -o ./jasper-bot
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - jasper-bot
+
+build-package:
+  stage: package
+  script:
+    - apt update && apt install -y build-essential devscripts debhelper
+    - cp jasper-bot debbuild/jasper-bot
+    - cd debbuild/
+    - dch -M -i "New version from Git" && dch -M -r -D stretch ""
+    - debuild -us -uc -b  
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - jasper-bot_*_amd64.deb
+
+test-my-project:
+  stage: test
+  coverage: '/coverage: \d+\.\d+/'
+  script:
+    - go get -d  
+    - go test -v
+    - go test -race
+    - go test -cover
+
+deploy_to_repo:
+  stage: deploy
+  variables:
+    DEPLOY_HOST: 'repo@bob.jba.io'
+  script:
+    - scp ./*.deb $DEPLOY_HOST:/home/repo/
+    - ssh $DEPLOY_HOST reprepro -b www/debian/ includedeb stretch *.deb
+
+
+#deploy_staging:
+#  stage: deploy
+#  variables:
+#    DEPLOY_HOST: 'golang@rick.jba.io'
+#    SERVICE_MANAGER: 'systemctl --user'
+#  script:
+#    - tar -cf $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar jasper assets/
+#    - scp $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar $DEPLOY_HOST:$CI_PROJECT_NAME.$CI_COMMIT_SHA.tar
+#    - ssh $DEPLOY_HOST ./helper -app jasper -tar $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar -svc "golang@jasper"
+#    ## scp to fresh folder
+#    #- scp -r ./ $DEPLOY_HOST:$CI_PROJECT_NAME.$CI_COMMIT_SHA
+#    ## Stop app, to release DB locks
+#    #- ssh $DEPLOY_HOST $SERVICE_MANAGER stop golang@$CI_PROJECT_NAME    
+#    ## If $CI_PROJECT_NAME exists, and is not a symlink, fail here since the next step fails otherwise
+#    #- ssh $DEPLOY_HOST /bin/bash -c "'if test -d $CI_PROJECT_NAME -a ! -L $CI_PROJECT_NAME; then echo ERROR $CI_PROJECT_NAME is not a symlink && exit 1; fi'"
+#    ## If $CI_PROJECT_NAME.new exists, fail here since this is a sign of a failed previous deployment
+#    #- ssh $DEPLOY_HOST /bin/bash -c "'if test -d $CI_PROJECT_NAME.new; then echo ERROR $CI_PROJECT_NAME.new exists && exit 1; fi'"
+#    ## Create symlink from $CI_PROJECT_NAME.$CI_COMMIT_SHA to $CI_PROJECT_NAME.new
+#    #- ssh $DEPLOY_HOST ln -sv $CI_PROJECT_NAME.$CI_COMMIT_SHA $CI_PROJECT_NAME.new
+#    ## Move $CI_PROJECT_NAME.new into place, overwriting old symlink
+#    #- ssh $DEPLOY_HOST mv -T $CI_PROJECT_NAME.new $CI_PROJECT_NAME
+#    ## Restart app
+#    #- ssh $DEPLOY_HOST $SERVICE_MANAGER start golang@$CI_PROJECT_NAME
+#  environment:
+#    name: staging
+#    url: http://jasper.rick.jba.io
+#  when: manual
+#
+#deploy_prod:
+#  stage: deploy
+#  variables:
+#    DEPLOY_HOST: 'golang@frink.jba.io'
+#    # using sudo due to no systemctl --user on CentOS 7 (https://bugs.centos.org/view.php?id=8767)
+#    SERVICE_MANAGER: 'sudo systemctl'
+#  script:
+#    - tar -cf $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar jasper assets/
+#    - scp $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar $DEPLOY_HOST:$CI_PROJECT_NAME.$CI_COMMIT_SHA.tar
+#    - ssh $DEPLOY_HOST ./helper -app jasper -tar $CI_PROJECT_NAME.$CI_COMMIT_SHA.tar -svc "golang@jasper" -sudo true
+#    ## scp to fresh folder
+#    #- scp -r ./ $DEPLOY_HOST:$CI_PROJECT_NAME.$CI_COMMIT_SHA
+#    ## Stop app, to release DB locks
+#    #- ssh $DEPLOY_HOST $SERVICE_MANAGER stop golang@$CI_PROJECT_NAME    
+#    ## If $CI_PROJECT_NAME exists, and is not a symlink, fail here since the next step fails otherwise
+#    #- ssh $DEPLOY_HOST /bin/bash -c "'if test -d $CI_PROJECT_NAME -a ! -L $CI_PROJECT_NAME; then echo ERROR $CI_PROJECT_NAME is not a symlink && exit 1; fi'"
+#    ## If $CI_PROJECT_NAME.new exists, fail here since this is a sign of a failed previous deployment
+#    #- ssh $DEPLOY_HOST /bin/bash -c "'if test -d $CI_PROJECT_NAME.new; then echo ERROR $CI_PROJECT_NAME.new exists && exit 1; fi'"    
+#    ## Create symlink from $CI_PROJECT_NAME.$CI_COMMIT_SHA to $CI_PROJECT_NAME.new
+#    #- ssh $DEPLOY_HOST ln -sv $CI_PROJECT_NAME.$CI_COMMIT_SHA $CI_PROJECT_NAME.new
+#    ## Move $CI_PROJECT_NAME.new into place, overwriting old symlink
+#    #- ssh $DEPLOY_HOST mv -T $CI_PROJECT_NAME.new $CI_PROJECT_NAME
+#    ## Restart app
+#    #- ssh $DEPLOY_HOST $SERVICE_MANAGER start golang@$CI_PROJECT_NAME
+#  environment:
+#    name: production
+#    url: https://thatsapaddl.in
+#  only:
+#    - master
