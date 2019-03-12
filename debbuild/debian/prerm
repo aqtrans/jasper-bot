@@ -1,4 +1,6 @@
 #!/bin/sh
 
-systemctl disable jasper-bot.service >/dev/null
-systemctl stop jasper-bot.service >/dev/null
+set -e
+
+deb-systemd-helper disable jasper-bot.service >/dev/null
+deb-systemd-helper stop jasper-bot.service >/dev/null
