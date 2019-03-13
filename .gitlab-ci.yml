@@ -52,10 +52,11 @@ build-package:
     - cd debbuild/
     - dch -M -i "New version from Git" && dch -M -r -D stretch ""
     - debuild -us -uc -b  
+    - cd ../ && cp jasper-bot_*_amd64.deb jasper-bot.deb
   artifacts:
     expire_in: 1 day
     paths:
-      - jasper-bot_*_amd64.deb
+      - jasper-bot.deb
 
 test-my-project:
   stage: test
@@ -66,14 +67,23 @@ test-my-project:
     - go test -race
     - go test -cover
 
+#deploy_to_repo:
+#  stage: deploy
+#  variables:
+#    DEPLOY_HOST: 'repo@bob.jba.io'
+#  script:
+#    - scp ./*.deb $DEPLOY_HOST:/home/repo/
+#    - ssh $DEPLOY_HOST reprepro -b www/debian/ includedeb stretch *.deb
+
 deploy_to_repo:
   stage: deploy
   variables:
-    DEPLOY_HOST: 'repo@bob.jba.io'
+    DEPLOY_HOST: 'deploy@bob.jba.io'
   script:
-    - scp ./*.deb $DEPLOY_HOST:/home/repo/
-    - ssh $DEPLOY_HOST reprepro -b www/debian/ includedeb stretch *.deb
-
+    - scp jasper-bot.deb $DEPLOY_HOST:/home/deploy/
+    - ssh $DEPLOY_HOST sudo dpkg -i jasper-bot.deb
+  only:
+    - master    
 
 #deploy_staging:
 #  stage: deploy
