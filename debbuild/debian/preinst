@@ -16,7 +16,7 @@ set -e
 
 case "$1" in
     upgrade)
-        deb-systemd-helper stop jasper-bot
+        deb-systemd-invoke stop jasper-bot
     ;;
 
     install|abort-upgrade)
