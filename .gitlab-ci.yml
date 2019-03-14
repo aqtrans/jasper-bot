@@ -48,11 +48,9 @@ build-package:
   stage: package
   script:
     - apt update && apt install -y build-essential devscripts debhelper
-    - cp jasper-bot debbuild/jasper-bot
-    - cd debbuild/
     - dch -M -i "New version from Git" && dch -M -r -D stretch ""
     - debuild -us -uc -b  
-    - cd ../ && cp jasper-bot_*_amd64.deb jasper-bot.deb
+    - mv ../jasper-bot_*_amd64.deb jasper-bot.deb
   artifacts:
     expire_in: 1 day
     paths:
