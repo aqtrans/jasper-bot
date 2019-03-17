@@ -7,11 +7,19 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/matrix-org/gomatrix"
 	"github.com/pelletier/go-toml"
 )
+
+type config struct {
+	Homeserver string
+	User       string
+	Pass       string
+	Name       string
+}
 
 func main() {
 	confFile := flag.String("conf", "config.toml", "Path to the TOML config file.")
@@ -21,40 +29,48 @@ func main() {
 	if err != nil {
 		log.Fatalln("Error reading", *confFile, err)
 	}
-	if !cfgTree.Has("homeserver") {
-		log.Fatalln(*confFile, "does not have homeserver defined.")
-	}
-	if !cfgTree.Has("user") {
-		log.Fatalln(*confFile, "does not have user defined.")
-	}
-	if !cfgTree.Has("pass") {
-		log.Fatalln(*confFile, "does not have pass defined.")
+	var cfg config
+	err = cfgTree.Unmarshal(&cfg)
+	if err != nil {
+		log.Fatalln("Error unmarshaling config:", err)
 	}
 	/*
-		if !cfgTree.Has("room") {
-			log.Fatalln(*confFile, "does not have room defined.")
+		if !cfgTree.Has("homeserver") {
+			log.Fatalln(*confFile, "does not have homeserver defined.")
 		}
-	*/
-	homeserver := cfgTree.Get("homeserver").(string)
-	user := cfgTree.Get("user").(string)
-	pass := cfgTree.Get("pass").(string)
-	//room := cfgTree.Get("room").(string)
+		if !cfgTree.Has("user") {
+			log.Fatalln(*confFile, "does not have user defined.")
+		}
+		if !cfgTree.Has("pass") {
+			log.Fatalln(*confFile, "does not have pass defined.")
+		}
 
-	cli, err := gomatrix.NewClient(homeserver, "", "")
+
+		homeserver := cfgTree.Get("homeserver").(string)
+		user := cfgTree.Get("user").(string)
+		pass := cfgTree.Get("pass").(string)
+		displayName := cfgTree.Get("displayName").(string)
+	*/
+	log.Println(cfg)
+
+	cli, err := gomatrix.NewClient(cfg.Homeserver, "", "")
 	if err != nil {
 		log.Fatalln("NewClient error:", err)
 	}
 
 	login, err := cli.Login(&gomatrix.ReqLogin{
 		Type:     "m.login.password",
-		User:     user,
-		Password: pass,
+		User:     cfg.User,
+		Password: cfg.Pass,
 	})
 	if err != nil {
 		log.Fatalln("Error logging in:", err)
 	}
 
+	log.Println("Access Token:", login.AccessToken)
+
 	cli.SetCredentials(login.UserID, login.AccessToken)
+	cli.SetDisplayName(cfg.Name)
 
 	/*
 		sendEvent, err := cli.SendText(room, "OMG!")
@@ -87,7 +103,7 @@ func main() {
 	syncer.OnEventType("m.room.message", func(ev *gomatrix.Event) {
 		msg, ok := ev.Body()
 		if ok {
-			//fmt.Println("Message: ", msg)
+			// Jasper / Thatsapaddl.in handling:
 			if strings.HasPrefix(msg, "!jasper") {
 				log.Println(ev.Sender, "requested", msg)
 				memeText := strings.TrimPrefix(msg, "!jasper ")
@@ -117,6 +133,28 @@ func main() {
 				_, err = cli.SendImage(ev.RoomID, "That's a Paddlin'", upload.ContentURI)
 				if err != nil {
 					log.Fatalln("SendImage error:", err)
+				}
+			}
+			// Squanch.Space handling:
+			re := regexp.MustCompile(`^;([A-z0-9_.])+\b`)
+			if re.MatchString(msg) {
+				memeText := strings.TrimPrefix(msg, ";")
+				log.Println(ev.Sender, " squanched ", memeText)
+				imgURL := "https://i.squanch.space/" + memeText
+				resp, err := http.Get(imgURL)
+				if err != nil {
+					log.Fatalln("error getting meme from squanch.space:", err)
+				}
+				// This means meme should exist
+				if resp.StatusCode == 200 {
+					resUpload, err := cli.UploadLink(imgURL)
+					if err != nil {
+						log.Fatalln("error uploading squanch.space meme:", err)
+					}
+					_, err = cli.SendImage(ev.RoomID, memeText, resUpload.ContentURI)
+					if err != nil {
+						log.Fatalln("SendImage error:", err)
+					}
 				}
 			}
 		}
